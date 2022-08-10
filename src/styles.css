@@ -1,0 +1,22 @@
+.App {
+  font-family: sans-serif;
+  text-align: center;
+}
+
+.suggestions {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  width: 100%;
+  display: flex;
+}
+
+.suggestions p {
+  padding: 0px;
+  margin: 4px;
+}
+
+.container {
+  display: flex;
+  border: 1px solid;
+  display: inline-block;
+}
