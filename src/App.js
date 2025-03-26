@@ -1,9 +1,8 @@
 import "./styles.css";
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import PropTypes from "prop-types";
 import { possibleValues } from "./data/possibleValues";
-import { matchWithError } from "./utils/matching";
-import debounce from "lodash/debounce";
+import { useMatching } from "./hooks/useMatching";
 
 // Ao / Apple -> 1 error -> Matches Apple
 // Ap / Apple -> 0 errors -> Matches Apple
@@ -13,44 +12,34 @@ import debounce from "lodash/debounce";
 
 export default function App({ initialValue = "", initialMatchedValues = [] }) {
   const [value, setValue] = useState(initialValue);
-  const [matchedValues, setMatchedValues] = useState(initialMatchedValues);
-  const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef(null);
 
-  const filterValues = useCallback((searchValue) => {
-    try {
-      setIsLoading(true);
-      const matched = possibleValues.filter((possibleValue) =>
-        matchWithError(searchValue, possibleValue)
-      );
-      setMatchedValues(matched);
-    } catch (error) {
-      console.error("Error filtering values:", error);
-      setMatchedValues([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const debouncedFilter = useMemo(
-    () => debounce(filterValues, 300),
-    [filterValues]
-  );
+  const {
+    matchedValues,
+    isLoading,
+    error,
+    filterValues,
+    cleanup
+  } = useMatching({
+    possibleValues,
+    debounceDelay: 300,
+    maxErrors: 1
+  });
 
   const handleOnChange = useCallback((e) => {
     const { value } = e.target;
     setValue(value);
     setSelectedIndex(-1);
-    debouncedFilter(value);
-  }, [debouncedFilter]);
+    filterValues(value);
+  }, [filterValues]);
 
   const handlePossibleSelect = useCallback((e, value) => {
     setValue(value);
-    setMatchedValues([]);
+    cleanup();
     setSelectedIndex(-1);
     inputRef.current?.focus();
-  }, []);
+  }, [cleanup]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === "ArrowDown" && selectedIndex < matchedValues.length - 1) {
@@ -60,23 +49,25 @@ export default function App({ initialValue = "", initialMatchedValues = [] }) {
     } else if (e.key === "Enter" && selectedIndex >= 0) {
       handlePossibleSelect(null, matchedValues[selectedIndex]);
     } else if (e.key === "Escape") {
-      setMatchedValues([]);
+      cleanup();
       setSelectedIndex(-1);
     }
-  }, [selectedIndex, matchedValues, handlePossibleSelect]);
+  }, [selectedIndex, matchedValues, handlePossibleSelect, cleanup]);
 
   const handleClear = useCallback(() => {
     setValue("");
-    setMatchedValues([]);
+    cleanup();
     setSelectedIndex(-1);
     inputRef.current?.focus();
-  }, []);
+  }, [cleanup]);
 
   useEffect(() => {
-    return () => {
-      debouncedFilter.cancel();
-    };
-  }, [debouncedFilter]);
+    return cleanup;
+  }, [cleanup]);
+
+  if (error) {
+    console.error("Error in matching:", error);
+  }
 
   return (
     <div className="App">
